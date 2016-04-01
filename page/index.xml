@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Pages on Eric Domke</title>
+    <link>http://www.ericdomke.com/page/</link>
+    <description>Recent content in Pages on Eric Domke</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 31 Mar 2016 22:17:11 -0400</lastBuildDate>
+    <atom:link href="http://www.ericdomke.com/page/index.xml" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>about</title>
+      <link>http://www.ericdomke.com/about/</link>
+      <pubDate>Thu, 31 Mar 2016 22:17:11 -0400</pubDate>
+      
+      <guid>http://www.ericdomke.com/about/</guid>
+      <description>&lt;p&gt;&lt;a href=&#34;https://plus.google.com/+EricDomke&#34;&gt;Eric Domke&lt;/a&gt; architects, develops, and maintains
+software for a living so that he can eat new foods, travel to new destinations,
+cycle along new paths, and photograph new sights&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

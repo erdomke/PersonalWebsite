@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta property="og:title" content="Troubleshooting Server Crashes in ASP.Net &middot; Eric Domke ">
+        <meta property="og:site_name" content="Eric Domke"/>
+        <meta property="og:description" content="">
+        <meta property="og:url" content="http://www.ericdomke.com/article/troubleshooting-server-crashes-in-asp.net/" />
+        <meta property="og:locale" content="en-us">
+        <meta name="author" content="Eric Domke">
+        <meta name="description" content="">
+        <meta name="keywords" content="">
+        <meta name="generator" content="Hugo 0.15" />
+        <link rel="icon" href="http://www.ericdomke.com/assets/favicon.ico" type="image/x-icon"> 
+        <link rel="stylesheet" href="http://www.ericdomke.com/css/slender-base.css">
+        <link rel="stylesheet" href="http://www.ericdomke.com/css/slender-color-schemes.css">
+        <link rel="stylesheet" href="http://www.ericdomke.com/css/font-awesome-4.5.0.min.css">
+        <link rel="stylesheet" href="http://www.ericdomke.com/css/highlight-9.0.0-default.min.css">
+        <title>
+            
+                Troubleshooting Server Crashes in ASP.Net &middot; Eric Domke
+            
+        </title>
+    </head>
+    <body class="color-scheme-white">
+        <div class="container">
+            <header>
+              <div class="header-block">
+                <nav>
+                    <ul><li><a href="http://www.ericdomke.com/">home</a></li><li><a href="http://www.ericdomke.com/about/">about</a></li></ul>
+                </nav>
+                
+                    <h1 class="post-title">Troubleshooting Server Crashes in ASP.Net</h1>
+                    <aside>
+                        <p>by <strong>Eric Domke</strong> on <strong>Mon, Mar 28, 2016</strong></p>
+                    </aside>
+                
+              </div>
+            </header>
+
+<article class="article-content">
+    
+
+<p>At my company, we recently experienced intermittent crashes/restarts on one of the ASP.Net applications
+which I help to develop and administrate. While it took me several hours to get to the bottom of the
+problem, I was finally able to solve it using the following sequence of steps.</p>
+
+<h2 id="step-1-is-there-a-problem:4570aa6c407ebd55f00c68a95e531ccf">Step 1: Is there a problem?</h2>
+
+<p>At my company, we are using <a href="http://newrelic.com">NewRelic</a> to monitor our production ASP.Net
+server. Both in NewRelic and in usage of our application, we were noticing that the program would
+stop responding for a minute or two at a time, but would then start responding again shortly
+thereafter.  When checking the server CPU and memory levels, we did not notice any persistent
+issues.  When checking the event log, we found cryptic errors saying</p>
+
+<pre><code class="language-nohighlight">Faulting application w3wp.exe, version 7.0.6002.18005, time stamp 0x49e023cf, 
+faulting module kernel32.dll, version 6.0.6002.19034, time stamp 0x52f2ecb1, 
+exception code 0xe053534f, fault offset 0x0001e743, process id 0x%9, 
+application start time 0x%10.
+</code></pre>
+
+<p>A Google search of <code>0xe053534f</code> led to <a href="http://blog.fogcreek.com/production-debugging-a-story-about-exception-code-0xe053534f/">blog posts online</a>
+indicating that the problem was a <code>StackOverflow</code> exception.  This post also indicated that we
+should be seeing two entries in the event log &ndash; the error and an entry from Windows Error Reporting
+including the link to a folder with additional details.  This phantom second entry was not found
+(perhaps because the server is not configured to send these reports to Microsoft?).  However, the
+post did indicate that the error reporting data data was in the directory
+<code>C:\ProgramData\Microsoft\Windows\WER\ReportQueue\</code>.</p>
+
+<h2 id="step-2-windows-error-reporting:4570aa6c407ebd55f00c68a95e531ccf">Step 2: Windows Error Reporting</h2>
+
+<p>It turns out that you can view the Windows Error Reports in the Windows user interface.  Simply
+search the Start Menu for <code>Problem Reports and Solutions</code>.  In the Tasks along the left, select
+<code>View problem history</code>.  Here you can view a list of recent reports including the offending
+application and the time of the report which you can correlate with your event log entry.  While
+you might be able to get all the information you need from the user interface, I found it easiest
+to correlate the timestamps in the interface with the folders in <code>C:\ProgramData\Microsoft\Windows\WER\ReportQueue\</code>.
+Examining the folders, I found files of types <code>*.mdmp</code> and <code>*.hdmp</code> which turn out to be mini
+and full memory dumps respectively.</p>
+
+<h2 id="step-3-viewing-memory-dumps:4570aa6c407ebd55f00c68a95e531ccf">Step 3: Viewing Memory Dumps</h2>
+
+<p>While there are likely many applications for analyzing memory dumps, it appears that the
+quintessential one is <a href="https://msdn.microsoft.com/en-us/windows/hardware/hh852365.aspx">WinDbg</a>
+available from Microsoft as part of the Windows Driver Kit (or as a separate download).  To begin,
+you need to install the correct version of WinDbg for you operating system.  Once that is complete,
+it is time to set up your environment.  <a href="http://www.diaryofaninja.com/blog/2014/03/20/investigating-aspnet-memory-dumps-for-idiots-like-me">Diary of a Ninja</a>
+has a good write-up on this.  Otherwise, the general steps are</p>
+
+<h3 id="directories:4570aa6c407ebd55f00c68a95e531ccf">Directories</h3>
+
+<p>Create a directory structure on your computer that looks something like</p>
+
+<pre><code class="language-nohighlight">C:\Debug
+C:\Debug\MemoryDumps
+C:\Debug\Symbols
+</code></pre>
+
+<h3 id="environmental-variables:4570aa6c407ebd55f00c68a95e531ccf">Environmental Variables</h3>
+
+<p>Create an environmental variable named <code>_NT_SYMBOL_PATH</code> and set it&rsquo;s value to</p>
+
+<pre><code class="language-nohighlight">SRV*C:\Debug\Symbols*http://msdl.microsoft.com/download/symbols;C:\Debug\MemoryDumps
+</code></pre>
+
+<p><img src="http://www.diaryofaninja.com/asset/blogimages/e4a88f66-c949-4c53-8c38-f1d10d0f3fe4_image9.png" alt="Environmental Variable Dialog" /></p>
+
+<p>Note: I am assuming you are using the directories outlined above.  Otherwise, the general structure
+of the command is</p>
+
+<pre><code class="language-nohighlight">SRV*[LOCATION TO STORE CACHE]*[PATH TO SYMBOLS SEPARATED BY SEMI-COLONS]
+</code></pre>
+
+<h3 id="copying-files:4570aa6c407ebd55f00c68a95e531ccf">Copying files</h3>
+
+<p>Copy the following file&rsquo;s to your <code>C:\Debug\MemoryDumps</code> folder:</p>
+
+<ul>
+<li>Your server&rsquo;s <code>SOS.dll</code>. This is available at the path
+<code>C:\Windows\Microsoft.NET\[Framework or Framework64]\[Framework Version #]\SOS.dll</code>.</li>
+<li>Your application&rsquo;s PDB files.</li>
+<li>Your memory dump.  (Remember the <code>*.hdmp</code> file in the Windows Error Reporting directory from
+earlier?)</li>
+<li>For .Net 2-3.5 Analysis:
+
+<ul>
+<li>Your server’s <code>mscordacwks.dll</code>. This is available at the path
+<code>C:\Windows\Microsoft.NET\[Framework or Framework64]\[Framework Version #]\mscordacwks.dll</code>.</li>
+</ul></li>
+<li>For .Net 4+ Analysis:
+
+<ul>
+<li>Your server’s <code>msdacwrks.dll</code>. This is available at the path
+<code>C:\Windows\Microsoft.NET\[Framework or Framework64]\[Framework Version #]\msdacwrks.dll</code>.</li>
+<li>Your server’s <code>clr.dll</code>. This is available at the path
+<code>C:\Windows\Microsoft.NET\[Framework or Framework64]\[Framework Version #]\clr.dll</code></li>
+</ul></li>
+</ul>
+
+<p>If you are having trouble getting the correct dll versions for your server, the
+<a href="https://chentiangemalc.wordpress.com/2014/04/16/obtaining-correct-mscordacwks-dll-for-net-windbging/">chentiangemalc blog</a>
+might be useful.  Also, during analysis, you might receive an error message about not being able to
+find the correct version of a particular dll.  In the error message it might give you a name of the
+dll with a version to use. In this case, you can create a copy of the dll (assuming it is of the
+correct version) in the <code>MemoryDumps</code> folder to circumvent the problem.  For example, I ended up
+having to rename <code>msdacwrks.dll</code> to <code>mscordacwks_x86_x86_2.0.50727.4253.dll</code> for my environment.</p>
+
+<h2 id="step-4-dealing-with-net-3-5:4570aa6c407ebd55f00c68a95e531ccf">Step 4: Dealing with .Net 3.5</h2>
+
+<p><img src="http://www.diaryofaninja.com/asset/blogimages/8d861f59-0981-4103-b1aa-b535d05af0ae_image_thumb_7.png" alt="Open Crash Dump in WinDbg" /></p>
+
+<p>Now you have launched WinDbg and opened the crash dump (File &gt; Open Crash Dump).
+<a href="http://www.diaryofaninja.com/blog/2014/03/20/investigating-aspnet-memory-dumps-for-idiots-like-me">Diary of a Ninja</a>
+would have you run the commands</p>
+
+<pre><code class="language-nohighlight">.symfix
+.reload
+.loadby sos clr
+</code></pre>
+
+<p><img src="https://msdnshared.blob.core.windows.net/media/MSDNBlogsFS/prod.evol.blogs.msdn.com/CommunityServer.Blogs.Components.WeblogFiles/00/00/00/25/31/metablogapi/4571.image_thumb_7B262BEE.png" alt="Run Commands in WinDbg" /></p>
+
+<p>However, these commands are specific to .Net 4+.  Unfortunately, I was debugging a .Net 3.5
+application. For .Net 3.5 (the 2.0 version of the CLR), <a href="https://msdn.microsoft.com/en-us/library/windows/hardware/ff540665.aspx">Microsoft</a>
+would have me replace the last command with</p>
+
+<pre><code class="language-nohighlight">.loadby sos mscorwks
+</code></pre>
+
+<p>However, that still didn&rsquo;t work for me.  What did
+work was following the <a href="https://blogs.msdn.microsoft.com/kaevans/2011/04/11/intro-to-windbg-for-net-developers/">advice from Kirk Evans</a>
+to download the <a href="https://blogs.msdn.microsoft.com/tom/2010/03/29/new-debugger-extension-for-net-psscor2-released/">Psscor2</a>
+extension for WinDbg from Microsoft.  Per Kirk&rsquo;s directions, I unzipped the download to</p>
+
+<pre><code class="language-nohighlight">C:\Debug\psscor2
+</code></pre>
+
+<h2 id="step-5-analyzing-the-dump:4570aa6c407ebd55f00c68a95e531ccf">Step 5: Analyzing the Dump</h2>
+
+<p>Putting this all together, analyzing the dump was now possible by</p>
+
+<ol>
+<li>Lanching WinDbg and opening the dump (File &gt; Open Crash Dump).</li>
+<li>Loading <code>psscor2</code> using the command <code>.load C:\Debug\psscor2\x86\psscor2.dll</code> since I needed the
+32-bit version</li>
+<li>Analyzing the dump with the command <code>!analyze -v</code></li>
+</ol>
+
+<p>This was enough to give me a useful stack trace from which I could identify the problem and fix the
+bug</p>
+
+</article>
+        </div>
+        <footer>
+            <p>Copyright 2016 &copy; Eric Domke</p>
+        </footer>
+        <script src="http://www.ericdomke.com/js/highlight-9.0.0.min.js"></script>
+        <script>hljs.initHighlightingOnLoad();</script>
+        
+    </body>
+</html>

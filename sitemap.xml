@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  
+  <url>
+    <loc>http://www.ericdomke.com/</loc>
+    <lastmod>2016-03-31T22:17:11-04:00</lastmod>
+    <priority>0</priority>
+  </url>
+  
+  <url>
+    <loc>http://www.ericdomke.com/about/</loc>
+    <lastmod>2016-03-31T22:17:11-04:00</lastmod>
+  </url>
+  
+  <url>
+    <loc>http://www.ericdomke.com/article/troubleshooting-server-crashes-in-asp.net/</loc>
+    <lastmod>2016-03-28T09:53:19-04:00</lastmod>
+  </url>
+  
+</urlset>
